@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>New Arrivals Dashboard</title>
+<style>
+  :root {
+    --bg: #0b0c10;
+    --card: #111217;
+    --muted: #8a8f98;
+    --text: #e6e8eb;
+    --accent: #4f9cff;
+    --ok: #19c37d;
+    --warn: #ffb020;
+    --bad: #ff5d5d;
+    --chip: #1b1d24;
+    --chip-border: #2a2d36;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji"; background: var(--bg); color: var(--text);} 
+  header {
+    position: sticky; top: 0; z-index: 10; backdrop-filter: saturate(180%) blur(10px);
+    background: rgba(11,12,16,0.75); border-bottom: 1px solid #1c1d24;
+  }
+  .container { max-width: 1200px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 20px; margin: 4px 0 12px; font-weight: 600; letter-spacing: .2px; }
+  .kpis { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin: 12px 0 16px; }
+  .card { background: var(--card); border: 1px solid #1c1d24; border-radius: 16px; padding: 14px; }
+  .kpi .label { color: var(--muted); font-size: 12px; }
+  .kpi .value { font-size: 22px; font-weight: 600; margin-top: 6px; }
+  .filters { display: grid; grid-template-columns: 1.2fr 1fr 1fr 1fr 1fr 1fr; gap: 8px; align-items: end; }
+  .filters .card { padding: 10px; }
+  .filters label { display:block; font-size: 11px; color: var(--muted); margin-bottom: 6px; }
+  input[type="text"], select { width: 100%; background: #0f1015; color: var(--text); border: 1px solid #1e2029; border-radius: 10px; padding: 8px 10px; }
+  .controls { display:flex; gap:8px; align-items:center; margin-top: 8px;}
+  button { background: #191b23; color: var(--text); border: 1px solid #272a35; border-radius: 10px; padding: 8px 10px; cursor: pointer; }
+  button.primary { background: var(--accent); color: #090b10; border-color: transparent; font-weight: 600; }
+  .table-wrap { margin-top: 12px; }
+  table { width: 100%; border-collapse: collapse; }
+  thead th { position: sticky; top: 68px; background: var(--card); border-bottom: 1px solid #1c1d24; text-align: left; padding: 10px; font-size: 12px; color: var(--muted); cursor: pointer; }
+  tbody td { border-bottom: 1px solid #151722; padding: 10px; font-size: 13px; vertical-align: top; }
+  tbody tr:hover { background: #10121a; }
+  .chip { display:inline-flex; align-items:center; gap:6px; padding: 3px 8px; border: 1px solid var(--chip-border); background: var(--chip); color: var(--text); border-radius: 999px; font-size: 11px; }
+  .chip.ok { border-color: #1e3b2d; background: #11251b; color: #b7ffdd; }
+  .chip.warn { border-color: #3b321e; background: #251e11; color: #ffe2b7; }
+  .chip.bad { border-color: #3b1e1e; background: #251111; color: #ffb7b7; }
+  .chip.live { border-color: #1e3b2d; background: #0f231a; color: #b7ffdd; }
+  .pill { font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 999px; display:inline-block; }
+  .pill.active { background: rgba(25,195,125,.15); color: #7dffca; }
+  .pill.draft { background: rgba(255,93,93,.15); color: #ffb7b7; }
+  .muted { color: var(--muted); }
+  .nowrap { white-space: nowrap; }
+  .title { font-weight: 600; }
+  .sticky-actions { position: sticky; bottom: 0; background: rgba(11,12,16,.9); padding: 8px 0; border-top: 1px solid #1c1d24; display:flex; gap:8px; justify-content:flex-end; }
+  .note { font-size: 12px; color: var(--muted); }
+  .small { font-size: 12px; }
+  .badge { font-size: 11px; padding: 2px 6px; border-radius: 6px; background: #131522; border:1px solid #1f2130; }
+</style>
+</head>
+<body>
+<header>
+  <div class="container">
+    <h1>New Arrivals Dashboard</h1>
+    <div class="kpis">
+      <div class="card kpi"><div class="label">Total SKUs</div><div class="value" id="kpi-total">-</div></div>
+      <div class="card kpi"><div class="label">Active / Draft</div><div class="value"><span id="kpi-active">-</span> <span class="muted">/</span> <span id="kpi-draft">-</span></div></div>
+      <div class="card kpi"><div class="label">With Images / Swatches</div><div class="value"><span id="kpi-img">-</span> <span class="muted">/</span> <span id="kpi-swatch">-</span></div></div>
+      <div class="card kpi"><div class="label">In Stock</div><div class="value" id="kpi-stock">-</div></div>
+    </div>
+    <div class="filters">
+      <div class="card">
+        <label>Search (SKU, Title, Handle)</label>
+        <input id="search" type="text" placeholder="Type to search…" />
+        <div class="controls">
+          <button id="clearFilters">Clear</button>
+        </div>
+      </div>
+      <div class="card">
+        <label>Status</label>
+        <select id="fStatus">
+          <option value="">All</option>
+          <option value="active">Active</option>
+          <option value="draft">Draft</option>
+        </select>
+        <label class="small" style="margin-top:6px;">Has Image</label>
+        <select id="fImg">
+          <option value="">All</option>
+          <option value="YES">YES</option>
+          <option value="NO">NO</option>
+        </select>
+      </div>
+      <div class="card">
+        <label>Has Swatch</label>
+        <select id="fSwatch">
+          <option value="">All</option>
+          <option value="YES">YES</option>
+          <option value="NO">NO</option>
+        </select>
+        <label class="small" style="margin-top:6px;">Type</label>
+        <select id="fType">
+          <option value="">All</option>
+          <option value="Seasonal">Seasonal</option>
+          <option value="Core">Core</option>
+        </select>
+      </div>
+      <div class="card">
+        <label>Stock</label>
+        <select id="fStock">
+          <option value="">All</option>
+          <option value="in">In Stock (&gt;0)</option>
+          <option value="out">Out of Stock (0)</option>
+        </select>
+        <label class="small" style="margin-top:6px;">Readiness</label>
+        <select id="fReady">
+          <option value="">All</option>
+          <option value="live">Live</option>
+          <option value="ready">Ready to go</option>
+          <option value="needs">Needs work</option>
+        </select>
+      </div>
+      <div class="card">
+        <label>WH Week</label>
+        <input id="fWeek" type="text" placeholder="e.g. 2, 3, 10…" />
+        <label class="small" style="margin-top:6px;">Style Group</label>
+        <input id="fStyle" type="text" placeholder="e.g. mup-3452" />
+      </div>
+      <div class="card">
+        <label>Data</label>
+        <div class="controls">
+          <input id="file" type="file" accept=".csv" />
+          <button id="saveLocal">Save to browser</button>
+        </div>
+        <div class="note" id="dataNote">Loaded: embedded dataset</div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="container">
+  <div class="table-wrap card">
+    <table id="tbl">
+      <thead>
+        <tr>
+          <th data-k="SKU">SKU</th>
+          <th data-k="TITLE">Title</th>
+          <th data-k="HANDLE">Handle</th>
+          <th data-k="PRICE">Price</th>
+          <th data-k="STYLE GROUP">Style Group</th>
+          <th data-k="WH WEEK">WH Week</th>
+          <th data-k="TYPE">Type</th>
+          <th>Status</th>
+          <th>Img</th>
+          <th>Swatch</th>
+          <th>Stock</th>
+          <th>Readiness</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <div class="sticky-actions">
+      <span class="note" id="rowCount"></span>
+      <div style="flex:1"></div>
+      <button id="exportCSV">Export current view (CSV)</button>
+      <button class="primary" id="resetToEmbedded">Reset to embedded data</button>
+    </div>
+  </div>
+  <div class="note" style="margin-top:8px;">Tip: Upload a CSV with the same headers to override. Click “Save to browser” to persist your latest upload (stored in localStorage).</div>
+</div>
+
+<script>
+// ---- Embedded dataset ----
+const INITIAL_DATA = [];
+</script>
+<script id="embedded-json" type="application/json"></script>
+<script>
+// Persist keys
+const LS_KEY = "new_arrivals_data_v1";
+const LS_NOTE = "new_arrivals_note_v1";
+
+// CSV parser (handles quotes, commas, newlines)
+function parseCSV(text) {
+  const rows = [];
+  let i = 0, cur = '', row = [], inQuotes = false;
+  while (i < text.length) {
+    const ch = text[i];
+    if (inQuotes) {
+      if (ch === '"') {
+        if (text[i+1] === '"') { cur += '"'; i++; }
+        else { inQuotes = false; }
+      } else { cur += ch; }
+    } else {
+      if (ch === ',') { row.push(cur); cur = ''; }
+      else if (ch === '"') { inQuotes = true; }
+      else if (ch === '\r') { /* skip */ }
+      else if (ch === '\n') { row.push(cur); rows.push(row); row = []; cur = ''; }
+      else { cur += ch; }
+    }
+    i++;
+  }
+  if (cur.length > 0 || row.length > 0) { row.push(cur); rows.push(row); }
+  if (rows.length === 0) return [];
+  const header = rows[0];
+  return rows.slice(1).filter(r => r.some(x => (x||'').trim() !== '')).map(r => {
+    const obj = {}; header.forEach((h, idx) => obj[h] = r[idx] !== undefined ? r[idx] : ''); return obj;
+  });
+}
+
+function num(v) { const n = parseFloat(v); return isNaN(n) ? null : n; }
+function int(v) { const n = parseInt(v, 10); return isNaN(n) ? 0 : n; }
+function readinessScore(r) {
+  const hasDesc = String(r.DESCR||'').trim() !== '' && String(r.DESCR).toLowerCase() !== 'nan';
+  const hasTags = String(r.TAGS||'').trim() !== '' && String(r.TAGS).toLowerCase() !== 'nan';
+  const hasImg = String(r["HAS IMG"]||'').toUpperCase() === 'YES';
+  const hasSw = String(r["HAS SWATCH"]||'').toUpperCase() === 'YES';
+  const price = num(r["PRICE.1"]) ?? num(r.PRICE);
+  const inStock = int(r.STOCK) > 0;
+  const checks = [hasDesc, hasTags, hasImg, hasSw, price && price > 0, inStock];
+  const score = checks.filter(Boolean).length;
+  return { score, hasImg, priceOk: !!(price && price > 0) };
+}
+
+function readinessLabel(r) {
+  const status = String(r.STATUS||'').toLowerCase();
+  if (status === 'active') return { text: 'Live', cls: 'live' };
+  const sc = readinessScore(r);
+  if (!sc.hasImg || !sc.priceOk) return { text: 'Needs work', cls: 'warn' };
+  return sc.score >= 5 ? { text: 'Ready to go', cls: 'ok' } : { text: 'Needs work', cls: 'warn' };
+}
+
+let DATA = [];
+let sortKey = "WH WEEK";
+let sortDir = "asc";
+
+function applyFilters() {
+  const q = el.search.value.trim().toLowerCase();
+  const st = el.fStatus.value;
+  const img = el.fImg.value;
+  const sw = el.fSwatch.value;
+  const ty = el.fType.value;
+  const stc = el.fStock.value;
+  const rdy = el.fReady.value;
+  const wk = el.fWeek.value.trim();
+  const sg = el.fStyle.value.trim().toLowerCase();
+
+  let view = DATA.filter(r => {
+    const hay = (r.SKU + ' ' + (r.TITLE||'') + ' ' + (r.HANDLE||'')).toLowerCase();
+    if (q && !hay.includes(q)) return false;
+    if (st && String(r.STATUS).toLowerCase() !== st) return false;
+    if (img && String(r["HAS IMG"]).toUpperCase() !== img) return false;
+    if (sw && String(r["HAS SWATCH"]).toUpperCase() !== sw) return false;
+    if (ty && String(r.TYPE) !== ty) return false;
+    if (stc === 'in' && int(r.STOCK) <= 0) return false;
+    if (stc === 'out' && int(r.STOCK) > 0) return false;
+    if (wk) {
+      const w = String(r["WH WEEK"] ?? '').trim();
+      const tokens = wk.split(',').map(s => s.trim());
+      if (!tokens.some(t => t && w === t)) return false;
+    }
+    if (sg && String(r["STYLE GROUP"]||'').toLowerCase().indexOf(sg) === -1) return false;
+    if (rdy) {
+      const lab = readinessLabel(r).text;
+      if (rdy === 'live'  && lab !== 'Live') return false;
+      if (rdy === 'ready' && lab !== 'Ready to go') return false;
+      if (rdy === 'needs' && lab !== 'Needs work') return false;
+    }
+    return true;
+  });
+
+  view.sort((a,b) => {
+    const av = a[sortKey] ?? '';
+    const bv = b[sortKey] ?? '';
+    if (sortKey === "WH WEEK" || sortKey === "STOCK" || sortKey === "PRICE") {
+      const na = parseFloat(av) || 0, nb = parseFloat(bv) || 0;
+      return sortDir === 'asc' ? na - nb : nb - na;
+    }
+    const sa = String(av).toLowerCase();
+    const sb = String(bv).toLowerCase();
+    if (sa < sb) return sortDir === 'asc' ? -1 : 1;
+    if (sa > sb) return sortDir === 'asc' ? 1 : -1;
+    return 0;
+  });
+
+  renderTable(view);
+  updateKpis(view);
+}
+
+function updateKpis(view) {
+  const total = view.length;
+  const act = view.filter(r => String(r.STATUS).toLowerCase() === 'active').length;
+  const drf = view.filter(r => String(r.STATUS).toLowerCase() === 'draft').length;
+  const img = view.filter(r => String(r["HAS IMG"]).toUpperCase() === 'YES').length;
+  const sw = view.filter(r => String(r["HAS SWATCH"]).toUpperCase() === 'YES').length;
+  const stock = view.filter(r => int(r.STOCK) > 0).length;
+  el.kTotal.textContent = total.toLocaleString();
+  el.kActive.textContent = act.toLocaleString();
+  el.kDraft.textContent = drf.toLocaleString();
+  el.kImg.textContent = img.toLocaleString();
+  el.kSwatch.textContent = sw.toLocaleString();
+  el.kStock.textContent = stock.toLocaleString();
+  el.rowCount.textContent = total.toLocaleString() + " rows";
+}
+
+function renderTable(view) {
+  const tbody = document.querySelector('#tbl tbody');
+  tbody.innerHTML = '';
+  const frag = document.createDocumentFragment();
+  for (const r of view) {
+    const tr = document.createElement('tr');
+    const price = (parseFloat(r["PRICE.1"]) || parseFloat(r.PRICE)) || "";
+    const lab = readinessLabel(r);
+    const pill = lab.text === 'Live' ? '<span class="chip live">Live</span>' : (lab.text === 'Ready to go' ? '<span class="chip ok">Ready to go</span>' : '<span class="chip warn">Needs work</span>');
+    tr.innerHTML = `
+      <td class="nowrap"><span class="title">${r.SKU}</span></td>
+      <td>${r.TITLE || ''}</td>
+      <td class="small muted">${r.HANDLE || ''}</td>
+      <td class="nowrap">${price ? '$' + Number(price).toFixed(2) : '<span class="badge">—</span>'}</td>
+      <td class="small">${r["STYLE GROUP"] || ''}</td>
+      <td class="nowrap">${r["WH WEEK"] ?? ''}</td>
+      <td>${r.TYPE || ''}</td>
+      <td>${String(r.STATUS).toLowerCase()==='active' ? '<span class="pill active">active</span>' : '<span class="pill draft">draft</span>'}</td>
+      <td>${String(r["HAS IMG"]).toUpperCase()==='YES' ? '<span class="chip ok">YES</span>' : '<span class="chip bad">NO</span>'}</td>
+      <td>${String(r["HAS SWATCH"]).toUpperCase()==='YES' ? '<span class="chip ok">YES</span>' : '<span class="chip bad">NO</span>'}</td>
+      <td class="nowrap">${int(r.STOCK).toLocaleString()}</td>
+      <td>${pill}</td>
+    `;
+    frag.appendChild(tr);
+  }
+  tbody.appendChild(frag);
+}
+
+const el = {
+  search: document.getElementById('search'),
+  fStatus: document.getElementById('fStatus'),
+  fImg: document.getElementById('fImg'),
+  fSwatch: document.getElementById('fSwatch'),
+  fType: document.getElementById('fType'),
+  fStock: document.getElementById('fStock'),
+  fReady: document.getElementById('fReady'),
+  fWeek: document.getElementById('fWeek'),
+  fStyle: document.getElementById('fStyle'),
+  clear: document.getElementById('clearFilters'),
+  file: document.getElementById('file'),
+  saveLocal: document.getElementById('saveLocal'),
+  reset: document.getElementById('resetToEmbedded'),
+  exportCSV: document.getElementById('exportCSV'),
+  kTotal: document.getElementById('kpi-total'),
+  kActive: document.getElementById('kpi-active'),
+  kDraft: document.getElementById('kpi-draft'),
+  kImg: document.getElementById('kpi-img'),
+  kSwatch: document.getElementById('kpi-swatch'),
+  kStock: document.getElementById('kpi-stock'),
+  rowCount: document.getElementById('rowCount')
+};
+
+['keyup','change'].forEach(ev => {
+  el.search.addEventListener(ev, applyFilters);
+  el.fStatus.addEventListener(ev, applyFilters);
+  el.fImg.addEventListener(ev, applyFilters);
+  el.fSwatch.addEventListener(ev, applyFilters);
+  el.fType.addEventListener(ev, applyFilters);
+  el.fStock.addEventListener(ev, applyFilters);
+  el.fReady.addEventListener(ev, applyFilters);
+  el.fWeek.addEventListener(ev, applyFilters);
+  el.fStyle.addEventListener(ev, applyFilters);
+});
+
+el.clear.addEventListener('click', () => {
+  el.search.value = '';
+  el.fStatus.value = '';
+  el.fImg.value = '';
+  el.fSwatch.value = '';
+  el.fType.value = '';
+  el.fStock.value = '';
+  el.fReady.value = '';
+  el.fWeek.value = '';
+  el.fStyle.value = '';
+  applyFilters();
+});
+
+document.querySelectorAll('#tbl thead th').forEach(th => {
+  th.addEventListener('click', () => {
+    const k = th.getAttribute('data-k');
+    if (!k) return;
+    if (sortKey === k) sortDir = (sortDir === 'asc' ? 'desc' : 'asc');
+    else { sortKey = k; sortDir = 'asc'; }
+    applyFilters();
+  });
+});
+
+document.getElementById('file').addEventListener('change', (e) => {
+  const f = e.target.files && e.target.files[0];
+  if (!f) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    const text = reader.result;
+    let rows = parseCSV(text);
+    if (!rows || !rows.length) { alert('No rows found. Is the CSV formatted correctly?'); return; }
+    DATA = rows;
+    document.getElementById('dataNote').textContent = 'Loaded: ' + (f.name || 'uploaded CSV');
+    applyFilters();
+  };
+  reader.readAsText(f);
+});
+
+document.getElementById('saveLocal').addEventListener('click', () => {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(DATA));
+    const ts = new Date().toLocaleString();
+    const note = (document.getElementById('dataNote').textContent || '') + ' • saved ' + ts;
+    localStorage.setItem(LS_NOTE, note);
+    document.getElementById('dataNote').textContent = note;
+    alert('Saved current dataset to your browser.');
+  } catch(e) {
+    alert('Could not save to browser: ' + e.message);
+  }
+});
+
+document.getElementById('resetToEmbedded').addEventListener('click', () => {
+  const jsonText = document.getElementById('embedded-json').textContent;
+  try { DATA = JSON.parse(jsonText); } catch (e) { DATA = []; }
+  document.getElementById('dataNote').textContent = 'Loaded: embedded dataset';
+  applyFilters();
+});
+
+document.getElementById('exportCSV').addEventListener('click', () => {
+  const q = el.search.value.trim().toLowerCase();
+  const st = el.fStatus.value;
+  const img = el.fImg.value;
+  const sw = el.fSwatch.value;
+  const ty = el.fType.value;
+  const stc = el.fStock.value;
+  const rdy = el.fReady.value;
+  const wk = el.fWeek.value.trim();
+  const sg = el.fStyle.value.trim().toLowerCase();
+  let view = DATA.filter(r => {
+    const hay = (r.SKU + ' ' + (r.TITLE||'') + ' ' + (r.HANDLE||'')).toLowerCase();
+    if (q && !hay.includes(q)) return false;
+    if (st && String(r.STATUS).toLowerCase() !== st) return false;
+    if (img && String(r["HAS IMG"]).toUpperCase() !== img) return false;
+    if (sw && String(r["HAS SWATCH"]).toUpperCase() !== sw) return false;
+    if (ty && String(r.TYPE) !== ty) return false;
+    if (stc === 'in' && (parseInt(r.STOCK || 0) <= 0)) return false;
+    if (stc === 'out' && (parseInt(r.STOCK || 0) > 0)) return false;
+    if (wk) {
+      const w = String(r["WH WEEK"] ?? '').trim();
+      const tokens = wk.split(',').map(s => s.trim());
+      if (!tokens.some(t => t && w === t)) return false;
+    }
+    if (sg && String(r["STYLE GROUP"]||'').toLowerCase().indexOf(sg) === -1) return false;
+    if (rdy) {
+      const lab = readinessLabel(r).text;
+      if (rdy === 'live'  && lab !== 'Live') return false;
+      if (rdy === 'ready' && lab !== 'Ready to go') return false;
+      if (rdy === 'needs' && lab !== 'Needs work') return false;
+    }
+    return true;
+  });
+
+  const headers = Object.keys(view[0] || DATA[0] || {});
+  let csv = headers.join(',') + '\n';
+  for (const r of view) {
+    const line = headers.map(h => {
+      const v = r[h] ?? '';
+      const s = String(v).replace(/"/g, '""');
+      if (s.search(/("|,|\n)/g) >= 0) return '"' + s + '"';
+      return s;
+    }).join(',');
+    csv += line + '\n';
+  }
+  const blob = new Blob([csv], {type: 'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'new_arrivals_view.csv';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+});
+
+// Boot: prefer cached dataset; otherwise use embedded JSON (if present)
+(function boot(){
+  try {
+    const cached = localStorage.getItem(LS_KEY);
+    const note = localStorage.getItem(LS_NOTE);
+    if (cached) {
+      const arr = JSON.parse(cached);
+      if (Array.isArray(arr)) { DATA = arr; document.getElementById('dataNote').textContent = note || 'Loaded: browser cache'; }
+    } else {
+      const txt = document.getElementById('embedded-json').textContent;
+      DATA = txt ? JSON.parse(txt) : INITIAL_DATA.slice();
+    }
+  } catch (e) { DATA = []; }
+  applyFilters();
+})();
+</script>
+</body>
+</html>
